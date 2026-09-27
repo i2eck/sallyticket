@@ -373,28 +373,18 @@ export async function downloadTicketImage(t: TicketRecord): Promise<void> {
 export function ticketMessage(t: TicketRecord, ticketUrl: string): string {
   return (
     `Your ${EVENT.name} ticket 🎫\n${EVENT.date}, ${EVENT.time}\n${EVENT.venue}, ${EVENT.location}\n` +
-    `Ticket no: ${t.number}\nShow the QR code at the gate: ${ticketUrl}`
+    `Ticket no: ${t.number}\nOpen this link on your phone to show your ticket at the gate: ${ticketUrl}\n` +
+    `This ticket works on one phone only, so please do not forward it.`
   )
 }
 
 /**
- * On phones that support it, opens the share sheet with the ticket image attached
- * (pick WhatsApp). Elsewhere it saves the image and opens a WhatsApp chat with the
- * customer, and the seller attaches the saved image.
+ * Opens a WhatsApp chat with the customer's ticket link. The ticket image is
+ * deliberately not attached: a picture of the QR can be forwarded and shown at the
+ * gate by anyone, whereas the link only opens on the phone it is first used on.
+ * Sellers hand over printed or downloaded copies in person instead.
  */
-export async function shareTicketImage(t: TicketRecord, ticketUrl: string): Promise<'shared' | 'saved'> {
+export function openWhatsAppTicketChat(t: TicketRecord, ticketUrl: string): void {
   const text = ticketMessage(t, ticketUrl)
-  const blob = await makeTicketBlob(t)
-  const file = new File([blob], ticketFileName(t), { type: 'image/png' })
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: `${EVENT.name} ticket`, text })
-    } catch {
-      // The seller closed the share sheet; nothing to do.
-    }
-    return 'shared'
-  }
-  await downloadTicketImage(t)
   window.open(`https://wa.me/${whatsappNumber(t.phone)}?text=${encodeURIComponent(text)}`, '_blank')
-  return 'saved'
 }

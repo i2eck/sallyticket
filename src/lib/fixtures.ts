@@ -52,4 +52,14 @@ export const TICKET_TYPES: TicketType[] = [
   },
 ]
 
-export const PAYMENT_METHODS = ['Cash', 'Mobile Money', 'Bank Transfer', 'WhatsApp'] as const
+// Only the two methods the organisers actually accept. Mobile money numbers are
+// listed separately so buyers are told exactly where to send the money.
+export const PAYMENT_METHODS = ['Cash', 'Mobile Money'] as const
+
+export type MobileMoneyNumber = { name: string; number: string }
+
+export const MOBILE_MONEY_NUMBERS: MobileMoneyNumber[] = [
+  { name: 'June Mumba', number: '0962493177' },
+  { name: 'Joshua Phiri', number: '0972322985' },
+]
+

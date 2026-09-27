@@ -3,14 +3,25 @@
 ## Done
 - Landing page with event branding and ticket prices, using the event photo as the hero.
 - Seller flow: sign-in with name and booth, ticket issuing, QR ticket saved to Firestore,
-  WhatsApp share (ticket image), save image, print, and a live list of the seller's sales.
+  WhatsApp share, save image, print, and a live list of the seller's sales.
 - Gate check-in: camera QR scan and manual entry. A transaction marks the ticket used, so
   two phones can never admit the same ticket.
 - Admin dashboard on live data: totals, sales by seller (with payment split), charts, and a
   searchable list of every sale, filterable by seller and by day. PIN-protected.
 - Public `/ticket/$id` page for customers.
+- Tickets cannot be passed on: the WhatsApp message sends a tokenised link instead of the
+  ticket image, the link only opens on the phone that claimed it, and the customer page has
+  no download button. The gate is unchanged — the QR still holds just the ticket number.
+- Payment is Cash or Mobile Money only, with the two mobile money numbers shown on the
+  landing page and on the sell form.
 
 ## Next
+- **Server-side check-in.** The browser can still write `checkedIn`, so while the Firestore
+  rules are open anyone can clear it in the console and reuse a ticket. Move the flip into a
+  Netlify function with the Admin SDK and add App Check. This is what actually makes a
+  forwarded ticket worthless; the device binding only stops the forward.
+- **Reissue a leaked ticket.** An admin action that voids a ticket number and reissues the
+  customer a new one, or clears `claimDeviceId` for someone who changed phones.
 - **Real access control.** The admin PIN is a soft lock and Firestore is opened to the
   browser. Add Firebase Auth (or a server function that checks a secret) and tighten the
   Firestore rules so only signed-in sellers can create tickets and only admins can read all.

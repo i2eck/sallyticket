@@ -31,6 +31,10 @@ export type TicketRecord = {
   timestamp: Date | null
   checkedIn: boolean
   checkedInAt: Date | null
+  /** Secret that makes the customer's link unguessable. Empty on older tickets. */
+  shareToken: string
+  /** Device that first opened the link. Empty until the customer opens it. */
+  claimDeviceId: string
 }
 
 export type SaveStatus = 'saved' | 'failed'
@@ -48,7 +52,8 @@ function toDate(v: unknown): Date | null {
   return Number.isNaN(d.getTime()) ? null : d
 }
 
-// Older documents may lack soldBy / location, so every field is read defensively.
+// Older documents may lack soldBy / location / shareToken, so every field is read
+// defensively.
 export function recordFromDoc(id: string, d: DocumentData): TicketRecord {
   return {
     number: String(d.number ?? id),
@@ -61,6 +66,8 @@ export function recordFromDoc(id: string, d: DocumentData): TicketRecord {
     timestamp: toDate(d.timestamp),
     checkedIn: Boolean(d.checkedIn),
     checkedInAt: toDate(d.checkedInAt),
+    shareToken: String(d.shareToken ?? ''),
+    claimDeviceId: String(d.claimDeviceId ?? ''),
   }
 }
 
@@ -82,6 +89,10 @@ export async function saveTicket(t: TicketRecord): Promise<SaveStatus> {
       timestamp: t.timestamp ?? new Date(),
       checkedIn: false,
       checkedInAt: null,
+      // The link the customer gets is worthless without this token, and the token
+      // is claimed by whichever phone opens it first.
+      shareToken: t.shareToken,
+      claimDeviceId: '',
       deviceId: typeof navigator === 'undefined' ? '' : navigator.userAgent,
     }).then((): SaveStatus => 'saved')
     const timeout = new Promise<SaveStatus>((resolve) => setTimeout(() => resolve('failed'), 8000))
@@ -145,6 +156,45 @@ export async function verifyTicket(number: string): Promise<VerifyResult> {
     if (ticket.checkedIn) return { status: 'used', ticket }
     tx.update(ref, { checkedIn: true, checkedInAt: serverTimestamp() })
     return { status: 'valid', ticket }
+  })
+  const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000))
+  return await Promise.race([run, timeout])
+}
+
+export type ClaimResult =
+  /** Link is good, and this device now owns the ticket. */
+  | { status: 'claimed'; ticket: TicketRecord }
+  /** This device already owns the ticket. */
+  | { status: 'yours'; ticket: TicketRecord }
+  /** Ticket predates the share token, so there is nothing to bind. */
+  | { status: 'unbound'; ticket: TicketRecord }
+  /** The link was forwarded to another phone. Deliberately reveals nothing. */
+  | { status: 'wrong-device' }
+  /** No such ticket, or the token in the link does not match. */
+  | { status: 'invalid' }
+
+/**
+ * Binds a ticket to the phone that first opens its link, so the buyer cannot pass it
+ * on: a forwarded copy of the link renders no QR anywhere else. The gate is
+ * unaffected, because the QR payload is still just the ticket number.
+ */
+export async function claimTicket(number: string, token: string, deviceId: string): Promise<ClaimResult> {
+  const db = getDb()
+  const ref = doc(db, COLLECTION, number)
+  const run = runTransaction(db, async (tx): Promise<ClaimResult> => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) return { status: 'invalid' }
+    const ticket = recordFromDoc(snap.id, snap.data())
+    // Tickets from the earlier single-file app have no token. They keep working.
+    if (!ticket.shareToken) return { status: 'unbound', ticket }
+    if (ticket.shareToken !== token) return { status: 'invalid' }
+    if (!ticket.claimDeviceId) {
+      tx.update(ref, { claimDeviceId: deviceId, claimedAt: serverTimestamp() })
+      return { status: 'claimed', ticket }
+    }
+    return ticket.claimDeviceId === deviceId
+      ? { status: 'yours', ticket }
+      : { status: 'wrong-device' }
   })
   const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000))
   return await Promise.race([run, timeout])

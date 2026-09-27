@@ -1,37 +1,46 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
-import { Download } from 'lucide-react'
 import { EVENT } from '@/lib/fixtures'
-import { fetchTicket, ticketTypeFor, type TicketRecord } from '@/lib/tickets'
+import { claimTicket, ticketTypeFor, type TicketRecord } from '@/lib/tickets'
+import { getDeviceId } from '@/lib/device'
 import { qrPayload } from '@/lib/ticket-codes'
-import { downloadTicketImage } from '@/lib/ticket-image'
+
+type TicketSearch = { t?: string }
 
 export const Route = createFileRoute('/ticket/$id')({
   component: TicketPage,
+  validateSearch: (search: Record<string, unknown>): TicketSearch => ({
+    t: typeof search.t === 'string' ? search.t : undefined,
+  }),
 })
 
 type State =
   | { status: 'loading' }
   | { status: 'missing' }
+  /** The link was forwarded, or opened on a second phone. Shows no ticket details. */
+  | { status: 'blocked' }
   | { status: 'error' }
   | { status: 'ok'; ticket: TicketRecord; qr: string }
 
 // The link a customer opens from WhatsApp: their ticket, ready to show at the gate.
+// It only works on the phone that opened it first, so it cannot be passed on.
 function TicketPage() {
   const { id } = Route.useParams()
+  const { t } = Route.useSearch()
   const [state, setState] = useState<State>({ status: 'loading' })
 
   useEffect(() => {
     let alive = true
     const number = id.trim().toUpperCase()
-    fetchTicket(number)
-      .then(async (ticket) => {
+    claimTicket(number, t ?? '', getDeviceId())
+      .then(async (result) => {
         if (!alive) return
-        if (!ticket) {
-          setState({ status: 'missing' })
+        if (result.status === 'invalid' || result.status === 'wrong-device') {
+          setState({ status: result.status === 'wrong-device' ? 'blocked' : 'missing' })
           return
         }
+        const ticket = result.ticket
         const qr = await QRCode.toDataURL(qrPayload(ticket.number), {
           width: 280,
           margin: 1,
@@ -46,7 +55,7 @@ function TicketPage() {
     return () => {
       alive = false
     }
-  }, [id])
+  }, [id, t])
 
   const type = state.status === 'ok' ? ticketTypeFor(state.ticket.type) : undefined
 
@@ -74,6 +83,16 @@ function TicketPage() {
           <p className="p-10 text-center text-[#5c3d4a]">
             We could not find this ticket. Check the link, or ask the seller who issued it.
           </p>
+        )}
+        {state.status === 'blocked' && (
+          <div className="p-10 text-center">
+            <p className="font-bold text-[#2a0c38] text-lg">This ticket belongs to another phone</p>
+            <p className="mt-3 text-sm text-[#5c3d4a] leading-relaxed">
+              Each ticket works on one phone only, so it cannot be passed on. If you changed phones
+              or cleared your browser data, tell the seller your ticket number and they will sort you
+              out at the gate.
+            </p>
+          </div>
         )}
         {state.status === 'error' && (
           <p className="p-10 text-center text-[#5c3d4a]">
@@ -119,15 +138,11 @@ function TicketPage() {
             </p>
 
             <p className="mt-4 text-[11px] text-[#8b5a18]">
-              Valid for one entry · Non-transferable · Non-refundable
+              Valid for one entry · Works on this phone only · Non-refundable
             </p>
-
-            <button
-              onClick={() => void downloadTicketImage(state.ticket).catch((e) => console.error(e))}
-              className="mt-5 inline-flex items-center gap-2 bg-[#2a0c38] hover:bg-[#3c1353] text-[#fbf4df] text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors border border-[#c99b39]"
-            >
-              <Download className="w-4 h-4" /> Save as image
-            </button>
+            <p className="mt-1 text-[11px] text-[#8b5a18]">
+              There is nothing to save or forward — keep this page open at the gate.
+            </p>
           </div>
         )}
       </div>

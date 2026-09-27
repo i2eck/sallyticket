@@ -14,6 +14,20 @@ export function qrPayload(number: string): string {
   return 'SJC:' + number
 }
 
+// Secret in the customer's link. /ticket/NUMBER on its own would let anyone who
+// learns a number render a QR for it, so the number alone is not a credential.
+export function newShareToken(): string {
+  const bytes = new Uint8Array(24)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+// The link the customer opens from WhatsApp. Kept here so the token stays next
+// to the number format it is paired with.
+export function ticketLink(origin: string, number: string, token: string): string {
+  return `${origin}/ticket/${number}?t=${token}`
+}
+
 // Accepts a scanned QR string or something typed by hand and returns the ticket number.
 export function extractTicketNumber(text: string): string | null {
   const t = text.trim()

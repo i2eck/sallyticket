@@ -4136,7 +4136,7 @@ var defaultSerovalPlugins = [
   ReadableStreamPlugin
 ];
 async function getStartManifest(matchedRoutes) {
-  const { tsrStartManifest } = await import("./assets/_tanstack-start-manifest_v-CeWHgdZO.js");
+  const { tsrStartManifest } = await import("./assets/_tanstack-start-manifest_v-DXppGuHF.js");
   const startManifest = tsrStartManifest();
   const rootRoute = startManifest.routes[rootRouteId] = startManifest.routes[rootRouteId] || {};
   rootRoute.assets = rootRoute.assets || [];
@@ -5067,7 +5067,7 @@ var baseManifestPromise;
 var cachedFinalManifestPromise;
 async function loadEntries() {
   const [routerEntry, startEntry, pluginAdapters] = await Promise.all([
-    import("./assets/router-DVLsTF45.js").then((n) => n.r),
+    import("./assets/router-CtCIkKPA.js").then((n) => n.r),
     import("./assets/start-HYkvq4Ni.js"),
     import("./assets/__23tanstack-start-plugin-adapters-Cwee5PKy.js")
   ]);

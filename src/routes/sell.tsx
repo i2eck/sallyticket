@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState, type FormEvent } from 'react'
 import QRCode from 'qrcode'
 import { CheckCircle2, Download, MessageCircle, Printer, Ticket as TicketIcon } from 'lucide-react'
-import { EVENT, PAYMENT_METHODS, TICKET_TYPES } from '@/lib/fixtures'
+import { EVENT, MOBILE_MONEY_NUMBERS, PAYMENT_METHODS, TICKET_TYPES } from '@/lib/fixtures'
 import {
   saveTicket,
   subscribeSellerTickets,
@@ -11,8 +11,8 @@ import {
   type TicketRecord,
 } from '@/lib/tickets'
 import { amountOf, filterPeriod, newestFirst } from '@/lib/sales'
-import { newTicketNumber, qrPayload } from '@/lib/ticket-codes'
-import { downloadTicketImage, shareTicketImage } from '@/lib/ticket-image'
+import { newTicketNumber, newShareToken, qrPayload, ticketLink } from '@/lib/ticket-codes'
+import { downloadTicketImage, openWhatsAppTicketChat } from '@/lib/ticket-image'
 
 type SellSearch = { type?: string }
 
@@ -38,6 +38,7 @@ function SellPage() {
   const [lastIssued, setLastIssued] = useState<IssuedTicket | null>(null)
   const [generating, setGenerating] = useState(false)
   const [notice, setNotice] = useState('')
+  const [payment, setPayment] = useState<string>(PAYMENT_METHODS[0])
 
   useEffect(() => {
     try {
@@ -101,6 +102,8 @@ function SellPage() {
         timestamp: new Date(),
         checkedIn: false,
         checkedInAt: null,
+        shareToken: newShareToken(),
+        claimDeviceId: '',
       }
       setLastIssued({ ticket, qrDataUrl, status: 'saving' })
       formEl.reset()
@@ -115,23 +118,17 @@ function SellPage() {
     }
   }
 
-  async function handleShare(ticket: TicketRecord) {
-    try {
-      const result = await shareTicketImage(ticket, `${window.location.origin}/ticket/${ticket.number}`)
-      setNotice(
-        result === 'saved'
-          ? 'Ticket image saved. In WhatsApp, attach it (paperclip) and send.'
-          : '',
-      )
-    } catch (error) {
-      console.error(error)
-      setNotice('Could not create the ticket image. Use Print, or screenshot the QR code.')
-    }
+  function handleShare(ticket: TicketRecord) {
+    // Link only, no attached image: the customer must open the ticket on their own
+    // phone, which is the only place it can ever be shown.
+    openWhatsAppTicketChat(ticket, ticketLink(window.location.origin, ticket.number, ticket.shareToken))
+    setNotice('WhatsApp opened with the ticket link. The customer opens it on their own phone.')
   }
 
   async function handleDownload(ticket: TicketRecord) {
     try {
       await downloadTicketImage(ticket)
+      setNotice('Image saved. Hand it over in person — do not send it over WhatsApp.')
     } catch (error) {
       console.error(error)
       setNotice('Could not create the ticket image. Use Print, or screenshot the QR code.')
@@ -258,8 +255,9 @@ function SellPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Payment method</label>
             <select
               name="paymentMethod"
-              defaultValue={PAYMENT_METHODS[0]}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 mb-6 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              value={payment}
+              onChange={(e) => setPayment(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-amber-500"
             >
               {PAYMENT_METHODS.map((m) => (
                 <option key={m} value={m}>
@@ -267,6 +265,21 @@ function SellPage() {
                 </option>
               ))}
             </select>
+            {payment === 'Mobile Money' && (
+              <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                <p className="text-xs font-semibold text-emerald-900">
+                  Ask the customer to send the money to either number:
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {MOBILE_MONEY_NUMBERS.map((m) => (
+                    <li key={m.number} className="text-sm text-emerald-900">
+                      <span className="font-mono font-bold">{m.number}</span>{' '}
+                      <span className="text-emerald-700">— {m.name}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <button
               type="submit"
               disabled={generating}

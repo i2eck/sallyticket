@@ -21,6 +21,43 @@ the door, and the admin sees every seller's sales live.
 - `/admin` — PIN-protected dashboard: totals, sales by seller, charts, searchable list of every sale
 - `/ticket/$id` — the customer's own ticket page (linked from the WhatsApp message)
 
+## Payment
+
+Only two methods are accepted: **Cash** and **Mobile Money**. Mobile money goes to either
+number, both listed in `MOBILE_MONEY_NUMBERS` in `src/lib/fixtures.ts`:
+
+- **0962493177** — June Mumba
+- **0972322985** — Joshua Phiri
+
+They are shown on the landing page and on the sell form as soon as Mobile Money is picked.
+Tickets already sold under the old `Bank Transfer` / `WhatsApp` options keep their stored
+`payment` value and still show correctly in the admin dashboard.
+
+## Ticket sharing
+
+A ticket is tied to the phone that opens its link first, so a buyer cannot pass it on:
+
+- The WhatsApp message contains a **link, not the ticket image**. A picture of the QR can be
+  forwarded and shown at the gate by anyone; a link cannot.
+- Each ticket gets a random `shareToken`. The link is `/ticket/$id?t=TOKEN`, so the ticket
+  number on its own is not enough to open a ticket.
+- The first phone to open the link is recorded in `claimDeviceId`. Any other phone gets
+  "this ticket belongs to another phone" and no QR code.
+- The customer page has no download button, so there is no forwardable copy to hand on.
+  Sellers hand over paper at the booth instead (Save image / Print on `/sell`).
+- The gate is unaffected: the QR still contains only `SJC:` + the ticket number, and a ticket
+  is still admitted once, inside a transaction.
+
+Limits worth knowing before the event:
+
+- A customer who changes phones or clears their browser data loses the QR. Gate staff admit
+  them by typing the ticket number, which is the intended escape hatch.
+- Nothing stops a buyer photographing their own screen at the gate. The only real answer to
+  that is matching the photo ID on the ticket to the name printed on it.
+- **The rules are the weak point, not the link.** The browser still writes `tickets` directly,
+  so while the Firestore rules are open anyone can clear `checkedIn` in the console and reuse
+  a ticket. Locking the check-in write behind a server function is the next step in `PLAN.md`.
+
 ## Running locally
 
 ```bash
@@ -48,8 +85,10 @@ netlify dev
 
 One Firestore collection, `tickets`, document id = ticket number. Fields: `name`, `phone`,
 `type` (`"50"` | `"80"` | `"150"`), `typeText`, `payment`, `soldBy`, `location`, `date`,
-`timestamp`, `checkedIn`, `checkedInAt`. The QR code holds `SJC:` + the ticket number.
-Tickets sold in the earlier single-file app use the same collection and still appear
-(without a seller name, they are listed as "Unassigned").
+`timestamp`, `checkedIn`, `checkedInAt`, `shareToken`, `claimDeviceId`, `claimedAt`. The QR
+code holds `SJC:` + the ticket number. Tickets sold in the earlier single-file app use the
+same collection and still appear (without a seller name, they are listed as "Unassigned"),
+and because they have no `shareToken` their ticket page still works for anyone who has the
+link.
 
 See `PLAN.md` for what is still to do.

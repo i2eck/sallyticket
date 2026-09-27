@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as StaffRouteImport } from './routes/staff'
 import { Route as SellRouteImport } from './routes/sell'
 import { Route as CheckinRouteImport } from './routes/checkin'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TicketIdRouteImport } from './routes/ticket.$id'
 
+const StaffRoute = StaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SellRoute = SellRouteImport.update({
   id: '/sell',
   path: '/sell',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/checkin': typeof CheckinRoute
   '/sell': typeof SellRoute
+  '/staff': typeof StaffRoute
   '/ticket/$id': typeof TicketIdRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/checkin': typeof CheckinRoute
   '/sell': typeof SellRoute
+  '/staff': typeof StaffRoute
   '/ticket/$id': typeof TicketIdRoute
 }
 export interface FileRoutesById {
@@ -61,14 +69,22 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/checkin': typeof CheckinRoute
   '/sell': typeof SellRoute
+  '/staff': typeof StaffRoute
   '/ticket/$id': typeof TicketIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/checkin' | '/sell' | '/ticket/$id'
+  fullPaths: '/' | '/admin' | '/checkin' | '/sell' | '/staff' | '/ticket/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/checkin' | '/sell' | '/ticket/$id'
-  id: '__root__' | '/' | '/admin' | '/checkin' | '/sell' | '/ticket/$id'
+  to: '/' | '/admin' | '/checkin' | '/sell' | '/staff' | '/ticket/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/checkin'
+    | '/sell'
+    | '/staff'
+    | '/ticket/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,11 +92,19 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   CheckinRoute: typeof CheckinRoute
   SellRoute: typeof SellRoute
+  StaffRoute: typeof StaffRoute
   TicketIdRoute: typeof TicketIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/staff': {
+      id: '/staff'
+      path: '/staff'
+      fullPath: '/staff'
+      preLoaderRoute: typeof StaffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sell': {
       id: '/sell'
       path: '/sell'
@@ -124,6 +148,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   CheckinRoute: CheckinRoute,
   SellRoute: SellRoute,
+  StaffRoute: StaffRoute,
   TicketIdRoute: TicketIdRoute,
 }
 export const routeTree = rootRouteImport
